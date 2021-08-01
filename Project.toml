@@ -3,6 +3,9 @@ uuid = "328aac2e-1a6f-4619-91d9-19137c651ee5"
 authors = ["Tom Breloff <tom@breloff.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+CombinedParsers = "5ae71ed2-6f8a-4ed1-b94f-e14e8158f19e"
+
 [compat]
 julia = "1"
 
