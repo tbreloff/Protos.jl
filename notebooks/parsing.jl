@@ -30,13 +30,14 @@ begin
 	decimalDigit = CharIn('0':'9')
 	octalDigit = CharIn('0':'7')
 	hexDigit = CharIn('0':'9', 'A':'F', 'a':'f')
+	letterExtended = Either{Any}(letter, decimalDigit, CharIn('_'))
 end;
 
 # ╔═╡ c43e4f2e-4f4a-4d07-8864-36d1abee1cac
 # identifiers
 begin
-	ident = !(letter * Repeat(letter | decimalDigit | CharIn('_')))
-	fullIdent = ident * Repeat(period * ident)
+	ident = !(letter * Repeat(letterExtended))
+	fullIdent = !(ident * Repeat(period * ident))
 	messageName = ident
 	enumName = ident
 	fieldName = ident
@@ -62,7 +63,7 @@ begin
 	decimalLit = CharIn('1':'9') * Repeat(decimalDigit)
 	octalLit = CharIn('0') * Repeat(octalDigit)
 	hexLit = CharIn('0') * CharIn("xX") * Repeat1(hexDigit)
-	intLit = !(decimalLit | octalLit | hexLit)
+	intLit = !Either{Any}(decimalLit, octalLit, hexLit)
 end;
 
 # ╔═╡ e650f905-f867-4011-a995-265f08bfddd0
@@ -70,7 +71,7 @@ end;
 begin
 	decimals = Repeat1(decimalDigit)
 	exponent = CharIn("eE") * Optional(CharIn("+-")) * decimals
-	floatLit = !Either(
+	floatLit = !Either{Any}(
 		decimals * period * Optional(decimals) * Optional(exponent),
 		decimals * exponent,
 		period * decimals * Optional(exponent)
@@ -79,7 +80,7 @@ end;
 
 # ╔═╡ 8f83eb51-6ffe-4059-a871-9bc72f6eefe4
 # boolean
-boolLit = !Either("true", "false")
+boolLit = !Either{Any}("true", "false")
 
 # ╔═╡ c6f30865-c82f-43c1-a406-c789542cced1
 floatLit("3.4e32")
@@ -90,14 +91,15 @@ boolLit("true")
 # ╔═╡ 7b05dbdd-dfc2-4ad1-9811-285f7f7a20c7
 # string literals
 begin
-	hexEscape = '\\' * CharIn("xX") * hexDigit * hexDigit
-	octEscape = '\\' * Repeat(3, 3, octalDigit)
-	charEscape = CharIn("\a\b\f\n\r\t\v\\\'\"")
-	charValue = hexEscape | octEscape | charEscape | CharIn("\0\n\\")
+	# hexEscape = '\\' * CharIn("xX") * hexDigit * hexDigit
+	# octEscape = '\\' * Repeat(3, 3, octalDigit)
+	# charEscape = CharIn("\a\b\f\n\r\t\v\\\'\"")
+	# charValue = hexEscape | octEscape | charEscape | CharIn("\0\n\\")
+	charValue = AnyChar()
 	_quote = CharIn("'", '"')
-	strLit = !Either(
-		"'" * Repeat(charValue) * "'",
-		'"' * Repeat(charValue) * '"'
+	strLit = Either{Any}(
+		Sequence(2, "'", !Repeat(charValue), "'"),
+		Sequence(2, '"', !Repeat(charValue), '"')
 	)
 end;
 
@@ -113,7 +115,7 @@ emptyStatement = ";";
 
 # ╔═╡ a451d245-7d95-44b5-8479-25df8b16cbb5
 # constant
-constant = Either(
+constant = Either{Any}(
 	fullIdent,
 	Optional(CharIn("+-")) * intLit,
 	Optional(CharIn("+-")) * floatLit,
@@ -134,46 +136,57 @@ syntax("syntax=\"proto3\";")
 # example: import public "other.proto";
 _import = Sequence(
 	"import", whitespace, 
-	:mod=>Optional(Either("weak", "public") * whitespace),
+	:mod=>Optional(Sequence(1, Either("weak", "public"), whitespace)),
 	:path=>strLit, ";"
 );
 
 # ╔═╡ 2e3c73da-6543-4690-859a-b7952ea3ce59
+# expect named tuple: (mod="public", path="other.proto")
 _import("import public \"other.proto\";")
 
 # ╔═╡ d75b7bd3-6b38-46c1-9b2f-5317767a4573
 # package statement
 # example: package foo.bar;
-_package = Sequence(
-	"package", whitespace,
-	:ident=>fullIdent, ";"
+_package = Sequence(3,
+	"package", whitespace, fullIdent, ";"
 );
 
 # ╔═╡ 4135fc07-8248-4002-bf25-0f725489625f
+# expect: "foo.bar"
 _package("package foo.bar;")
 
 # ╔═╡ ed64df3e-e2cd-49a3-be81-90eeb844541f
 # option statement
 # example:  option java_package = "com.example.foo";
 begin
-	optionName = Either(ident, "(" * fullIdent * ")") * Repeat(period * ident)
-	_option = "option" * whitespace * optionName * _equals * constant * ";"
-end;
+	optionName = !Sequence(
+		Either{Any}(ident, "(" * fullIdent * ")"),
+		Repeat(period * ident)
+	)
+	_option = Sequence(
+		"option", whitespace,
+		:key=>optionName, _equals, :value=>constant, ";"
+	)
+
+	# expect named tuple: (key="java_package", value="com.example.foo")
+	_option("option java_package = \"com.example.foo\";")
+end
 
 # ╔═╡ 3dbdd248-d042-4f5c-9978-69654c475743
 # fields
 begin
-	fieldType = !Either(
+	fieldType = !Either{Any}(
 		"double", "float", "int32", "int64", "uint32", "uint64",
 		"sint32", "sint64", "fixed32", "fixed64", "sfixed32", "sfixed64",
 		"bool", "string", "bytes", messageType, enumType
 	)
-	fieldNumber = intLit
+	# get the intLit as an Int64
+	fieldNumber = map(i -> parse(Int64, i), intLit)
 	fieldOption = Sequence(:name=>optionName, _equals, :val=>constant)
 	fieldOptions = fieldOption * Repeat("," * ws * fieldOption)
-	fieldMaybeOptions = Sequence(
-		ws, 
-		Optional('[' * fieldOptions * ']'), 
+	fieldMaybeOptions = Sequence(2, 
+		ws,
+		Optional(Sequence(2, '[', fieldOptions, ']')), 
 		';'
 	)
 	field = Sequence(
@@ -185,17 +198,26 @@ begin
 end;
 
 # ╔═╡ d1baf6d8-c537-4b43-af97-4e216544f961
-#field("repeated string x = 4 ;")
+# expect named tuple: (type="string", name="x", num=4)
+field("repeated string x = 4 ;")
 
 # ╔═╡ ade4156c-e206-4667-bd3f-8cda0368efcb
 # oneofs
 begin
-	oneofField = fieldType * whitespace * fieldName * _equals * fieldNumber * ws * Optional('[' * fieldOptions * ']') * ';'
-	oneof = Sequence(
-		"oneof", ws, oneofName, ws, '{',
-		Repeat(_option | oneofField | emptyStatement),
-		ws, '}'
+	oneofField = Sequence(
+		:type=>fieldType, whitespace,
+		:name=>fieldName, _equals, :num=>fieldNumber, 
+		fieldMaybeOptions
 	)
+	oneof = Sequence(
+		"oneof", whitespace, oneofName, whitespace, '{',
+		Repeat(Sequence(2, whitespace, oneofField)),
+		# Repeat(Sequence(2, whitespace, Either{Any}(_option, oneofField, emptyStatement))),
+		whitespace, '}'
+	)
+	oneof("""oneof XX {
+		string x = 1;
+	}""")
 end;
 
 # ╔═╡ 4f705d5c-af6e-43b4-97a6-ed6e00bbcd69
