@@ -12,5 +12,6 @@ using Test
         @test parsed.statements[2].value == "some.other.package.name"
         
         # TODO: ensure both messages and enum are present
+        @test length(parsed.statements) > 5
     end
 end

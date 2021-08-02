@@ -222,7 +222,7 @@ const enumFieldWithComments = Sequence(
 )
 const enum = Sequence(
     :comments=>filler,
-    "enum", whitespace, :name=>enumName, ws, '{', 
+    "enum", whitespace, :enumName=>enumName, ws, '{', 
     :fields=>Repeat(enumFieldWithComments),
     filler,
     '}'
@@ -231,7 +231,7 @@ const enum = Sequence(
 # message definitions
 const innerFieldWithComments = Sequence(
     :comments=>filler,
-    :field=>Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement)
+    :field=>Either{Any}(field, _option, oneof, mapField, reserved, emptyStatement)
 )
 const innerMessage = Sequence(
     :comments=>filler,
@@ -241,15 +241,20 @@ const innerMessage = Sequence(
     filler,
     '}'
 )
-const messageFieldWithComments = Sequence(
-    :comments=>filler,
-    :field=>Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement, innerMessage)
+const messageFieldWithComments = Either{Any}(
+    innerMessage,
+    enum,
+    innerFieldWithComments
 )
+# Sequence(
+#     :comments=>filler,
+#     :field=>Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement, innerMessage)
+# )
 const message = Sequence(
     :comments=>filler,
     "message", whitespace, :messageName=>messageName, ws, 
     '{',
-    :fields=>Repeat(innerFieldWithComments),
+    :fields=>Repeat(messageFieldWithComments),
     filler,
     '}'
 )
