@@ -465,43 +465,51 @@ end;
 begin
 	test_proto = """
 	/*
-	 * Licensed to the Apache Software Foundation (ASF) under one
-	 * or more contributor license agreements.  See the NOTICE file
-	 * distributed with this work for additional information
-	 * regarding copyright ownership.  The ASF licenses this file
-	 * to you under the Apache License, Version 2.0 (the
-	 * "License"); you may not use this file except in compliance
-	 * with the License.  You may obtain a copy of the License at
-	 *
-	 *     http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
+		This is a file-wide comment.
 	 */
 	
 	syntax = "proto3";
 	
-	package io.statefun.sdk.types;
+	package some.package.name;
 	
-	option java_package = "org.apache.flink.statefun.sdk.types.generated";
+	option java_package = "some.other.package.name";
 	option java_multiple_files = true;
 	
 	
-	// BooleanWrapper represents a StateFun primitive type of a boolean value. This is recognized as:
-	// io.statefun.types/bool
-	message BooleanWrapper {
-	  bool value = 1;
+	// these comments 
+	// will get combined
+	message MyMessage1 {
+		// comment
+	  	bool value = 1;
+		/* another
+			comment */
+		map<string, uint32> m = 2;
+
+		// this will get thrown away
 	}
 	
-	// IntWrapper represents a StateFun primitive type of an signed 32 bit integer value. This is recognized as:
-	// io.statefun.types/int
-	message IntWrapper {
-	  sfixed32 value = 1;
+	// another message
+	message MyMessage2 {
+
+		// an inner message
+		message InnerMessage {
+			string x = 1;
+		}
+
+		// oneof comment
+		oneof one_of {
+			sfixed32 value = 1;
+			// comment
+			InnerMessage inner_message = 3;
+		}
 	}
 	
+	enum XX {
+		// comment
+		UNKNOWN = 0;
+		SOMETHING = 1;
+	}
+
 	
 	"""
 	proto(test_proto)
