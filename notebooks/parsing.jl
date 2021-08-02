@@ -123,6 +123,48 @@ CharIn('"', "'")(raw"'")
 # empty statement
 emptyStatement = ";";
 
+# ╔═╡ 1e178d31-5179-4d13-83a3-0dae0ef7ce42
+# comments
+begin
+	blockComment = Sequence(2,
+		"/*", !Repeat(AnyChar()), "*/"
+	)
+	lineComment = Sequence(2,
+		"//", !Repeat(CharNotIn("\n\r")), "\n"
+	)
+	lineComments = map(lineComment * Repeat(Optional(whitespace_newline) * lineComment)) do (c1, cRest)
+		# make one big comment from the multiple line comments
+		comms = cat([c1], [ci[2] for ci in cRest], dims=1)
+		join(comms, "\n")
+	end
+	
+	# this grabs a comment block with any whitespace before or after.
+	# we'll use this in most places we want to grab comments.
+	filler = Sequence(2,
+		Optional(whitespace_newline),
+		Optional(Either{Any}(blockComment, lineComments)),
+		Optional(whitespace_newline)
+	)
+end;
+
+# ╔═╡ c5ad5de8-dae4-4515-801c-5e31e13a805e
+blockComment("/* something something // blah \n next line */")
+
+# ╔═╡ d9c28086-665c-4b76-bc39-dcdf261de04f
+lineComments("// this is a comment\n next line")
+
+# ╔═╡ b0bf46c2-bc1c-4568-9667-34a77862daff
+filler("""
+	
+	// first comment
+	// second comment
+			// third
+	
+	""")
+
+# ╔═╡ ec32fac3-f824-4cc5-9652-2ed45a910635
+filler("  \n\n ")
+
 # ╔═╡ a451d245-7d95-44b5-8479-25df8b16cbb5
 # constant
 constant = Either{Any}(
@@ -157,8 +199,8 @@ _import("import public \"other.proto\";")
 # ╔═╡ d75b7bd3-6b38-46c1-9b2f-5317767a4573
 # package statement
 # example: package foo.bar;
-_package = Sequence(3,
-	"package", whitespace, fullIdent, ";"
+_package = Sequence(
+	"package", whitespace, :package=>fullIdent, ";"
 );
 
 # ╔═╡ 4135fc07-8248-4002-bf25-0f725489625f
@@ -219,17 +261,28 @@ begin
 		:name=>fieldName, _equals, :num=>fieldNumber, 
 		fieldMaybeOptions
 	)
-	oneof = Sequence(
-		"oneof", whitespace, :name=>oneofName, ws, '{',
-		:fields=>Repeat(Sequence(2, whitespace_newline, Either{Any}(_option, oneofField, emptyStatement))),
-		whitespace_newline, '}'
+	oneofFieldWithComments = Sequence(
+		:comments=>filler,
+		:field=>Either{Any}(_option, oneofField, emptyStatement)
 	)
-	# expecting named tuple: (name="XX", fields=[(type="string", name="x", num=1), (type="uint32", name="y", num=2)])
-	oneof("""oneof XX {
-		string x = 1;
-		unit32 y = 2;
-	}""")
-end
+	oneof = Sequence(
+		:comments=>filler,
+		"oneof", whitespace, :name=>oneofName, ws, '{',
+		:fields=>Repeat(oneofFieldWithComments),
+		filler, '}'
+	)
+end;
+
+# ╔═╡ 6270fa99-ba80-4163-ab26-be7c0ca74ba6
+# expecting named tuple: (name="XX", fields=[(type="string", name="x", num=1), (type="uint32", name="y", num=2)])
+oneof("""
+// primary comment
+oneof XX {
+	// x comment
+	string x = 1;
+	// y comment
+	unit32 y = 2;
+}""")
 
 # ╔═╡ 4f705d5c-af6e-43b4-97a6-ed6e00bbcd69
 # maps
@@ -247,9 +300,11 @@ begin
 		:name=>mapName, _equals, :num=>fieldNumber, 
 		fieldMaybeOptions
 	)
-	# expect: (keyType="string", valueType="uint32", name="xx", num=123)
-	mapField("map<string, uint32> xx = 123;")
-end
+end;
+
+# ╔═╡ 202a8068-84ba-4380-8b5d-5c21b09bd0fc
+# expect: (keyType="string", valueType="uint32", name="xx", num=123)
+mapField("map<string, uint32> xx = 123;")
 
 # ╔═╡ bd06257e-dd57-410d-8a85-728425749285
 # reserved statements
@@ -283,22 +338,33 @@ begin
 		Optional(Sequence('[', enumValueOption, 
 				Repeat(Sequence(',', ws, enumValueOption)), ']')), ';'
 	)
-	# expect: (fieldname="UNKNOWN", fieldnum=-2)
-	@show enumField("UNKNOWN = -2;")
-	enumBody = Sequence(2, 
-		'{', 
-		Repeat(Sequence(2, whitespace_newline, Either(_option, enumField, emptyStatement))),
-		whitespace_newline, '}'
+	enumFieldWithComments = Sequence(
+		:comments=>filler,
+		:field=>Either{Any}(_option, enumField, emptyStatement)
 	)
 	enum = Sequence(
-		"enum", whitespace, :name=>enumName, ws, :body=>enumBody
+		:comments=>filler,
+		"enum", whitespace, :name=>enumName, ws, '{', 
+		:fields=>Repeat(enumFieldWithComments),
+		filler,
+		'}'
 	)
-	# expect: (name="XX", body=[(key="allow_alias", value="true"), (fieldname="UNKNOWN", fieldnum=0)])
-	enum("""enum XX {
-			option allow_alias = true;
-			UNKNOWN = 0;
-		}""")
 end;
+
+# ╔═╡ 44e05b1e-7ea3-4647-8d39-00cb1f64f9e9
+# expect: (name="XX", body=[(key="allow_alias", value="true"), (fieldname="UNKNOWN", fieldnum=0)])
+enum("""
+/* a comment
+	*/
+enum XX {
+	// comment 1
+	option allow_alias = true;
+	
+	/*
+	comment 2
+	*/
+	UNKNOWN = 0;
+}""")
 
 # ╔═╡ 40dc7e13-d531-44a0-853d-6de9b4669275
 enum("""enum XXX {
@@ -310,72 +376,136 @@ enum("""enum XXX {
 # ╔═╡ 2ee90ff6-183c-44d0-8f7f-523600a19aab
 # message definitions
 begin
-	innerMessageBody = Sequence(2, 
-		'{',
-		Repeat(Sequence(2, whitespace_newline, Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement))),
-		whitespace_newline, '}'
+	innerFieldWithComments = Sequence(
+		:comments=>filler,
+		:field=>Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement)
 	)
-	@show innerMessageBody("""{
-		string xx = 1;
-		map<string, string> yy = 22;
-	}""")
 	innerMessage = Sequence(
-		"message", whitespace, :messageName=>messageName, ws, :body=>innerMessageBody
-	)
-	messageBody = Sequence(2, 
+		:comments=>filler,
+		"message", whitespace, :messageName=>messageName, ws, 
 		'{',
-		Repeat(Sequence(2, whitespace_newline, Either{Any}(field, enum, _option, innerMessage, oneof, mapField, reserved, emptyStatement))),
-		whitespace_newline, '}'
+		:fields=>Repeat(innerFieldWithComments),
+		filler,
+		'}'
+	)
+	messageFieldWithComments = Sequence(
+		:comments=>filler,
+		:field=>Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement, innerMessage)
 	)
 	message = Sequence(
-		"message", whitespace, :messageName=>messageName, ws, :body=>messageBody
+		:comments=>filler,
+		"message", whitespace, :messageName=>messageName, ws, 
+		'{',
+		:fields=>Repeat(innerFieldWithComments),
+		filler,
+		'}'
 	)
-
-	# expect: (messageName="MMM", body=[(type="string", name="x", num=1), (type="OtherMessage", name="y", num=4)])
-	message("""message MMM {
-			string x=1;
-			OtherMessage y =  4;
-		}""")
 end;
+
+# ╔═╡ 213b524a-0166-418c-87ad-3bb651e389af
+# expect: (messageName="MMM", body=[(type="string", name="x", num=1), (type="OtherMessage", name="y", num=4)])
+message("""
+	// fdksjd
+	message MMM {
+	/*xxx*/	string x=1;
+	// ddddd	
+	OtherMessage y =  4;
+	}""")
 
 # ╔═╡ d1687636-ebb8-411f-8bc6-2e37095713af
 # service definitions
 begin
+	# returns true when matching "stream "
 	isstream = map(x -> x=="stream ", Optional("stream "))
 	rpc = Sequence(
+		:comments=>filler,
 		"rpc", whitespace, 
 		:rpcName=>rpcName, ws, 
 		'(', :inputIsStream=>isstream, :inputType=>messageType, ')',
 		whitespace, "returns", whitespace,
 		'(', :outputIsStream=>isstream, :outputType=>messageType, ')',
 		ws, Either{Any}(
-			Sequence('{', :extra=>Optional(_option | emptyStatement), '}'),
+			Sequence('{', :extra=>Optional(_option | emptyStatement), "};"),
 			';'
 		)
 	)
-	@show rpc("rpc Call (stream CallReq) returns (CallResp) {};")
 	service = Sequence(
+		:comments=>filler,
 		"service", whitespace, :serviceName=>serviceName, ws, '{', 
 		:rpcs=>Repeat(Sequence(2, whitespace_newline, Either{Any}(_option, rpc, emptyStatement))),
 		whitespace_newline, '}'
 	)
-
-	service("""service CallService {
-		rpc Call (stream CallReq) returns (CallResp) {};
-	}""")
 end;
+
+# ╔═╡ 45231c28-ab21-4233-ac5d-703828c876fb
+# expect: (serviceName="CallService", rpcs=[(rpcName="Call", inputIsStream=true, inputType="CallReq", outputIsStream=false, outputType="CallResp")])
+service("""
+	// service comment
+	service CallService {
+	// rpc comment
+	rpc Call (stream CallReq) returns (CallResp) {};
+}""")
 
 # ╔═╡ 094384db-1eb8-48dc-a892-48304e3b3501
 # a complete proto file
 begin
 	topLevelDef = Either{Any}(message, enum, service)
 	proto = Sequence(
-		Optional(whitespace_newline),
+		:comment=>filler,
 		syntax,
-		Repeat(Sequence(2, whitespace_newline, Either{Any}(_import, _package, _option, topLevelDef, emptyStatement))),
-		Optional(whitespace_newline)
+		:statements=>Repeat(Sequence(2, 
+			whitespace_newline, 
+			Either{Any}(_import, _package, _option, topLevelDef, emptyStatement)
+		)),
+		filler
 	)
 end;
+
+# ╔═╡ 05210f1c-8047-4b06-a534-e6cee75ccc11
+begin
+	test_proto = """
+	/*
+	 * Licensed to the Apache Software Foundation (ASF) under one
+	 * or more contributor license agreements.  See the NOTICE file
+	 * distributed with this work for additional information
+	 * regarding copyright ownership.  The ASF licenses this file
+	 * to you under the Apache License, Version 2.0 (the
+	 * "License"); you may not use this file except in compliance
+	 * with the License.  You may obtain a copy of the License at
+	 *
+	 *     http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 */
+	
+	syntax = "proto3";
+	
+	package io.statefun.sdk.types;
+	
+	option java_package = "org.apache.flink.statefun.sdk.types.generated";
+	option java_multiple_files = true;
+	
+	
+	// BooleanWrapper represents a StateFun primitive type of a boolean value. This is recognized as:
+	// io.statefun.types/bool
+	message BooleanWrapper {
+	  bool value = 1;
+	}
+	
+	// IntWrapper represents a StateFun primitive type of an signed 32 bit integer value. This is recognized as:
+	// io.statefun.types/int
+	message IntWrapper {
+	  sfixed32 value = 1;
+	}
+	
+	
+	"""
+	proto(test_proto)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -752,6 +882,11 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═db8069fb-c088-4421-97ba-6beedeb16f81
 # ╠═67fdaab4-beed-4d93-b7a3-d0f93aa6dece
 # ╠═eac881c7-7b77-470c-a716-cfa52fd46cc5
+# ╠═1e178d31-5179-4d13-83a3-0dae0ef7ce42
+# ╠═c5ad5de8-dae4-4515-801c-5e31e13a805e
+# ╠═d9c28086-665c-4b76-bc39-dcdf261de04f
+# ╠═b0bf46c2-bc1c-4568-9667-34a77862daff
+# ╠═ec32fac3-f824-4cc5-9652-2ed45a910635
 # ╠═a451d245-7d95-44b5-8479-25df8b16cbb5
 # ╠═833a0139-ae44-4f53-a2bf-a144e16d919c
 # ╠═fe36b63c-0a29-4b2a-879b-3a73381bd672
@@ -763,12 +898,18 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═3dbdd248-d042-4f5c-9978-69654c475743
 # ╠═d1baf6d8-c537-4b43-af97-4e216544f961
 # ╠═ade4156c-e206-4667-bd3f-8cda0368efcb
+# ╠═6270fa99-ba80-4163-ab26-be7c0ca74ba6
 # ╠═4f705d5c-af6e-43b4-97a6-ed6e00bbcd69
+# ╠═202a8068-84ba-4380-8b5d-5c21b09bd0fc
 # ╠═bd06257e-dd57-410d-8a85-728425749285
 # ╠═b97ba68f-426e-4d8f-8af0-b4c66050b14a
+# ╠═44e05b1e-7ea3-4647-8d39-00cb1f64f9e9
 # ╠═40dc7e13-d531-44a0-853d-6de9b4669275
 # ╠═2ee90ff6-183c-44d0-8f7f-523600a19aab
+# ╠═213b524a-0166-418c-87ad-3bb651e389af
 # ╠═d1687636-ebb8-411f-8bc6-2e37095713af
+# ╠═45231c28-ab21-4233-ac5d-703828c876fb
 # ╠═094384db-1eb8-48dc-a892-48304e3b3501
+# ╠═05210f1c-8047-4b06-a534-e6cee75ccc11
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
