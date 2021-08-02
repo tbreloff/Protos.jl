@@ -310,51 +310,70 @@ enum("""enum XXX {
 # ╔═╡ 2ee90ff6-183c-44d0-8f7f-523600a19aab
 # message definitions
 begin
-	innerMessageBody = Sequence(
-		'{', ws,
-		Repeat(Either(field, enum, _option, oneof, mapField, reserved, emptyStatement) * ws),
-		'}'
+	innerMessageBody = Sequence(2, 
+		'{',
+		Repeat(Sequence(2, whitespace_newline, Either{Any}(field, enum, _option, oneof, mapField, reserved, emptyStatement))),
+		whitespace_newline, '}'
 	)
+	@show innerMessageBody("""{
+		string xx = 1;
+		map<string, string> yy = 22;
+	}""")
 	innerMessage = Sequence(
-		"message", whitespace, messageName, ws, innerMessageBody
+		"message", whitespace, :messageName=>messageName, ws, :body=>innerMessageBody
 	)
-	messageBody = Sequence(
-		'{', ws,
-		Repeat(Either(field, enum, innerMessage, _option, oneof, mapField, reserved, emptyStatement) * ws),
-		'}'
+	messageBody = Sequence(2, 
+		'{',
+		Repeat(Sequence(2, whitespace_newline, Either{Any}(field, enum, _option, innerMessage, oneof, mapField, reserved, emptyStatement))),
+		whitespace_newline, '}'
 	)
 	message = Sequence(
-		"message", whitespace, messageName, ws, messageBody
+		"message", whitespace, :messageName=>messageName, ws, :body=>messageBody
 	)
+
+	# expect: (messageName="MMM", body=[(type="string", name="x", num=1), (type="OtherMessage", name="y", num=4)])
+	message("""message MMM {
+			string x=1;
+			OtherMessage y =  4;
+		}""")
 end;
 
 # ╔═╡ d1687636-ebb8-411f-8bc6-2e37095713af
 # service definitions
 begin
+	isstream = map(x -> x=="stream ", Optional("stream "))
 	rpc = Sequence(
-		"rpc", whitespace, rpcName, ws, 
-		'(', Optional("stream "), messageType, ')',
+		"rpc", whitespace, 
+		:rpcName=>rpcName, ws, 
+		'(', :inputIsStream=>isstream, :inputType=>messageType, ')',
 		whitespace, "returns", whitespace,
-		'(', Optional("stream "), messageType, ')',
-		Either(
-			Sequence('{', _option | emptyStatement, '}'),
+		'(', :outputIsStream=>isstream, :outputType=>messageType, ')',
+		ws, Either{Any}(
+			Sequence('{', :extra=>Optional(_option | emptyStatement), '}'),
 			';'
 		)
 	)
+	@show rpc("rpc Call (stream CallReq) returns (CallResp) {};")
 	service = Sequence(
-		"service", whitespace, serviceName, ws, '{', ws,
-		Repeat(Either(_option, rpc, emptyStatement) * ws),
-		'}'
+		"service", whitespace, :serviceName=>serviceName, ws, '{', 
+		:rpcs=>Repeat(Sequence(2, whitespace_newline, Either{Any}(_option, rpc, emptyStatement))),
+		whitespace_newline, '}'
 	)
+
+	service("""service CallService {
+		rpc Call (stream CallReq) returns (CallResp) {};
+	}""")
 end;
 
 # ╔═╡ 094384db-1eb8-48dc-a892-48304e3b3501
 # a complete proto file
 begin
-	topLevelDef = Either(message, enum, service)
+	topLevelDef = Either{Any}(message, enum, service)
 	proto = Sequence(
-		ws, syntax,
-		Repeat(ws * Either(_import, _package, _option, topLevelDef, emptyStatement))
+		Optional(whitespace_newline),
+		syntax,
+		Repeat(Sequence(2, whitespace_newline, Either{Any}(_import, _package, _option, topLevelDef, emptyStatement))),
+		Optional(whitespace_newline)
 	)
 end;
 
