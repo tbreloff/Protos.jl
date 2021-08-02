@@ -8,7 +8,7 @@ using InteractiveUtils
 using CombinedParsers
 
 # ╔═╡ c5ff4ddd-0c52-45e3-bd24-808b4a61ac9f
-using CombinedParsers.Regexp: whitespace
+using CombinedParsers.Regexp: whitespace, whitespace_newline
 
 # ╔═╡ ba772876-a0a5-46b1-83e0-e92236567df5
 md"""
@@ -21,6 +21,16 @@ begin
 	period = CharIn('.')
 	ws = Optional(whitespace)
 	_equals = ws * "=" * ws
+	function commasep(x, delim=','*ws)
+		join(Repeat(x), delim, infix=:prefix) do (x1, xrest)
+			ret = Any[]
+			push!(ret, x1)
+			for xi in xrest
+				push!(ret, xi[2])
+			end
+			ret
+		end
+	end
 end;
 
 # ╔═╡ a9e631f8-f21e-4802-823e-f4742c8eb1d8
@@ -210,15 +220,16 @@ begin
 		fieldMaybeOptions
 	)
 	oneof = Sequence(
-		"oneof", whitespace, oneofName, whitespace, '{',
-		Repeat(Sequence(2, whitespace, oneofField)),
-		# Repeat(Sequence(2, whitespace, Either{Any}(_option, oneofField, emptyStatement))),
-		whitespace, '}'
+		"oneof", whitespace, :name=>oneofName, ws, '{',
+		:fields=>Repeat(Sequence(2, whitespace_newline, Either{Any}(_option, oneofField, emptyStatement))),
+		whitespace_newline, '}'
 	)
+	# expecting named tuple: (name="XX", fields=[(type="string", name="x", num=1), (type="uint32", name="y", num=2)])
 	oneof("""oneof XX {
 		string x = 1;
+		unit32 y = 2;
 	}""")
-end;
+end
 
 # ╔═╡ 4f705d5c-af6e-43b4-97a6-ed6e00bbcd69
 # maps
@@ -228,22 +239,33 @@ begin
 		"fixed32", "fixed64", "sfixed32", "sfixed64", "bool", "string"
 	)
 	mapField = Sequence(
-		"map", ws, "<", keyType, ",", ws, fieldType, ">", ws,
-		mapName, _equals, fieldNumberAndOptions
+		"map", ws, "<",
+		:keyType=>keyType,
+		",", ws,
+		:valueType=>fieldType,
+		">", ws,
+		:name=>mapName, _equals, :num=>fieldNumber, 
+		fieldMaybeOptions
 	)
-end;
+	# expect: (keyType="string", valueType="uint32", name="xx", num=123)
+	mapField("map<string, uint32> xx = 123;")
+end
 
 # ╔═╡ bd06257e-dd57-410d-8a85-728425749285
 # reserved statements
 # example: reserved 2, 15, 9 to 11;
 # example: reserved "foo", "bar";
 begin
-	fieldNames = fieldName * Repeat(',' * ws * fieldName)
-	range = intLit * Optional(Sequence(" to ", intLit | "max"))
-	ranges = range * Repeat(',' * ws * range)
-	reserved = Sequence(
+	fieldNames = commasep(fieldName)
+	range = Either{Any}(
+		!Sequence(intLit, " to ", intLit | "max"),
+		intLit
+	)
+	ranges = commasep(range)
+	reserved = Sequence(3,
 		"reserved", whitespace, ranges | fieldNames
 	)
+	reserved("reserved 2, 15, 9 to 11;")
 end;
 
 # ╔═╡ b97ba68f-426e-4d8f-8af0-b4c66050b14a
@@ -257,16 +279,25 @@ begin
 	enumValueOption = optionName * _equals * constant
 	enumField = Sequence(
 		:fieldname=>ident, _equals, 
-		:fieldnum=>!Sequence(Optional('-'), intLit),
+		:fieldnum=>map(i -> parse(Int64, i), !Sequence(Optional('-'), intLit)),
 		Optional(Sequence('[', enumValueOption, 
 				Repeat(Sequence(',', ws, enumValueOption)), ']')), ';'
 	)
+	# expect: (fieldname="UNKNOWN", fieldnum=-2)
+	@show enumField("UNKNOWN = -2;")
 	enumBody = Sequence(2, 
-		'{', Repeat(Either(_option, enumField, emptyStatement)), '}'
+		'{', 
+		Repeat(Sequence(2, whitespace_newline, Either(_option, enumField, emptyStatement))),
+		whitespace_newline, '}'
 	)
 	enum = Sequence(
 		"enum", whitespace, :name=>enumName, ws, :body=>enumBody
 	)
+	# expect: (name="XX", body=[(key="allow_alias", value="true"), (fieldname="UNKNOWN", fieldnum=0)])
+	enum("""enum XX {
+			option allow_alias = true;
+			UNKNOWN = 0;
+		}""")
 end;
 
 # ╔═╡ 40dc7e13-d531-44a0-853d-6de9b4669275
