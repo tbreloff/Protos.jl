@@ -1,3 +1,5 @@
+module Parsing
+
 using CombinedParsers
 using CombinedParsers.Regexp: whitespace, whitespace_newline
 
@@ -131,6 +133,7 @@ const optionName = !Sequence(
     Repeat(period * ident)
 )
 const _option = Sequence(
+    :comments=>filler,
     "option", whitespace,
     :key=>optionName, _equals, :value=>constant, ";"
 )
@@ -170,7 +173,7 @@ const oneofFieldWithComments = Sequence(
 )
 const oneof = Sequence(
     :comments=>filler,
-    "oneof", whitespace, :name=>oneofName, ws, '{',
+    "oneof", whitespace, :oneofName=>oneofName, ws, '{',
     :fields=>Repeat(oneofFieldWithComments),
     filler, '}'
 )
@@ -199,8 +202,8 @@ const range = Either{Any}(
     intLit
 )
 const ranges = commasep(range)
-const reserved = Sequence(3,
-    "reserved", whitespace, ranges | fieldNames
+const reserved = Sequence(
+    "reserved", whitespace, :reserved=>Either{Any}(ranges, fieldNames)
 )
 
 # enums
@@ -304,3 +307,5 @@ function parse_proto(io::IO)
     text = read(io, String)
     parse_proto(text)
 end
+
+end # module
