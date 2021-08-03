@@ -1,34 +1,39 @@
 
 module Specs
 
+export NormalField, MapField, OneOf, Message, 
+    EnumSpec, EnumValue,
+    ProtoFile, to_type
+
 # types
 
 type_pairs = [
-    ("double", Float64),
-    ("float", Float32),
-    ("int32", Int32),
-    ("int64", Int64),
-    ("uint32", UInt32),
-    ("uint64", UInt64),
-    ("sint32", Int32),
-    ("sint64", Int64),
-    ("fixed32", Int32),
-    ("fixed64", Int64),
-    ("sfixed32", Int32),
-    ("sfixed64", Int64),
-    ("bool", Bool),
-    ("string", String),
-    ("bytes", Vector{UInt8})
+    ("double", "Float64"),
+    ("float", "Float32"),
+    ("int32", "Int32"),
+    ("int64", "Int64"),
+    ("uint32", "UInt32"),
+    ("uint64", "UInt64"),
+    ("sint32", "Int32"),
+    ("sint64", "Int64"),
+    ("fixed32", "Int32"),
+    ("fixed64", "Int64"),
+    ("sfixed32", "Int32"),
+    ("sfixed64", "Int64"),
+    ("bool", "Bool"),
+    ("string", "String"),
+    ("bytes", "Vector{UInt8}")
 ]
-str_to_type = Dict{String, Type}(p[1]=>p[2] for p in Specs.type_pairs)
-type_to_str = Dict{Type, String}(p[2]=>p[1] for p in Specs.type_pairs)
+str_to_type = Dict{String, String}(p[1]=>p[2] for p in Specs.type_pairs)
+type_to_str = Dict{String, String}(p[2]=>p[1] for p in Specs.type_pairs)
 
 function to_type(s)
     if haskey(str_to_type, s)
         str_to_type[s]
     else
-        # ex: "Int64" --> Int64
-        eval(Symbol(s))
+        s
+        # # ex: "Int64" --> Int64
+        # eval(Symbol(s))
     end
 end
 
