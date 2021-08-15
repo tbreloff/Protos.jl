@@ -5,6 +5,8 @@ version = "0.1.0"
 
 [deps]
 CombinedParsers = "5ae71ed2-6f8a-4ed1-b94f-e14e8158f19e"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
 
 [compat]
 julia = "1"
