@@ -1,9 +1,18 @@
 
+"""
+This module deals with the conversion from a bunch of nested
+NamedTuples (which are output by the parser) into a fully typed
+and structured form.
+
+Usage: Pass the output from `parse_proto` into the `ProtoFile` constructor.
+"""
 module Specs
+
 
 export NormalField, MapField, OneOf, Message, 
     EnumSpec, EnumValue,
-    ProtoFile, to_type
+    ProtoFile, to_type,
+    Service, Rpc
 
 # types
 
@@ -196,7 +205,7 @@ struct Service
     Service(name, comments) = new(name, comments, Rpc[])
 end
 
-Base.push!(serice::Service, rpc::Rpc) = push!(service.rpcs, rpc)
+Base.push!(service::Service, rpc::Rpc) = push!(service.rpcs, rpc)
 
 function Service(o::NamedTuple)
     s = Service(o.serviceName, o.comments) 
@@ -236,6 +245,7 @@ function ProtoFile(o::NamedTuple)
             push!(pf, spec(stmt))
         end
     end
+    o.unparsed == "" || @warn "Part of the proto file could not be parsed:\n\n$(o.unparsed)"
     pf
 end
 
