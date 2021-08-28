@@ -238,6 +238,9 @@ Markdown.parse(todocs(pf))
 # ╔═╡ 4051727e-2ef9-4822-b050-5e918bd75cb7
 md"We'll use this same pattern to generate code in order to interact with proto data."
 
+# ╔═╡ 11c2697f-5833-42a8-9772-c10e8fd9af15
+md"TODO: We can serialize to bytes with `write_proto` and `read_proto` methods from [ProtoBuf.jl](https://github.com/JuliaIO/ProtoBuf.jl)"
+
 # ╔═╡ 691bdc92-f816-480b-9c9e-3ac46c6a2157
 showcode(generate(pf))
 
@@ -265,11 +268,32 @@ md"Instantiating a new `MyMessage1` is straightforward:"
 # ╔═╡ d8b62e66-2b8b-4947-9550-9414b6164b32
 mm1 = MyMessage1(value=true, m=Dict("a"=>1, "b"=>2))
 
-# ╔═╡ 11c2697f-5833-42a8-9772-c10e8fd9af15
-md"TODO: We can serialize to bytes with `write_proto` and `read_proto` methods from [ProtoBuf.jl](https://github.com/JuliaIO/ProtoBuf.jl)"
-
 # ╔═╡ ef5f5791-fa0e-424e-ba6a-c5e9d69af764
 # TODO: round trip to/from bytes
+
+# ╔═╡ 043ad351-6ee8-4d08-9b86-e1817849b18c
+begin
+	proto_default(::Type) = missing
+	proto_default(::Type{T}) where {T<:Number} = zero(T)
+	proto_default(::Type{T}) where {T<:AbstractString} = ""
+	proto_default(::Type{Bool}) = false
+	proto_default(::Type{Vector{T}}) where T = T[]
+end;
+
+# ╔═╡ ba3e662b-40fb-4fe9-94a2-148ba0e97110
+proto_default(UInt32)
+
+# ╔═╡ d88b10ae-41f2-4e0d-b97f-65fb252ac926
+proto_default(String)
+
+# ╔═╡ 259ccbcc-2974-48e3-8cb0-4c494da6435f
+proto_default(Bool)
+
+# ╔═╡ d8415c2b-223c-402f-b1c5-15cf8e40de5a
+proto_default(Vector{MyMessage1})
+
+# ╔═╡ e431141c-3879-4ce8-830e-bbf7f0d1178a
+proto_default(MyMessage1)
 
 # ╔═╡ Cell order:
 # ╟─821a55e1-2f2a-41d4-81bb-6c52a889c3dc
@@ -292,3 +316,9 @@ md"TODO: We can serialize to bytes with `write_proto` and `read_proto` methods f
 # ╟─89725058-be3e-4bb0-86bb-da8324673f10
 # ╠═d8b62e66-2b8b-4947-9550-9414b6164b32
 # ╠═ef5f5791-fa0e-424e-ba6a-c5e9d69af764
+# ╠═043ad351-6ee8-4d08-9b86-e1817849b18c
+# ╠═ba3e662b-40fb-4fe9-94a2-148ba0e97110
+# ╠═d88b10ae-41f2-4e0d-b97f-65fb252ac926
+# ╠═259ccbcc-2974-48e3-8cb0-4c494da6435f
+# ╠═d8415c2b-223c-402f-b1c5-15cf8e40de5a
+# ╠═e431141c-3879-4ce8-830e-bbf7f0d1178a
