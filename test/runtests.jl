@@ -23,4 +23,11 @@ using Test
         proto_default(Vector{String}) == String[]
         proto_default(ProtoFile) == missing
     end
+
+    @testset "serialization" begin
+        import Protos.Serialization: writefield
+        io = IOBuffer()
+        writefield(io, idx, 150, Val(:uint32))
+        @test take!(io) == [0x08, 0x96, 0x01]
+    end
 end

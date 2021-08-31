@@ -16,6 +16,25 @@ function comments(comment)
     ismissing(comment) ? "" : "#" * replace(comment, "\n" => "\n#") * "\n"
 end
 
+# ---------------------------------------
+
+const file_header = """
+import Base: @kwdef
+"""
+
+generate_struct(m::Message) = """
+@kwdef struct $(m.name)
+    $(join(generate_struct.(m.fields), "\n    "))
+	f1::Union{Missing, UInt32} # uint32 f1 = 1;
+	f2::Union{Missing, String} # string f2 = 2;
+end
+"""
+
+generate_struct(f::NormalField) = "$(f.name)::Union{Missing, $(WIRETYPES[f.t][4]) = missing"
+
+# ---------------------------------------
+
+
 """
 generate a bunch of string representations for each element in arr.
 the func should return a string representation of each element.
