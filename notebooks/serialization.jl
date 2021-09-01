@@ -461,6 +461,15 @@ bytes = writeproto(t1)
 # ╔═╡ b67b05fa-2d5c-4448-b972-5c363a6d5a6b
 Test1(IOBuffer(bytes))
 
+# ╔═╡ 7a920003-0888-493d-b7fb-73dcfa25b5b7
+t2 = Test2(Test1(f2="hi"))
+
+# ╔═╡ e1ea9818-e913-47ed-b949-afe0be53b46e
+bytes2 = writeproto(t2)
+
+# ╔═╡ d30170e9-309a-4cb9-87cd-5049b45e3c8a
+Test2(IOBuffer(bytes2))
+
 # ╔═╡ 813080f0-54f5-467d-9915-a64b3e639953
 @benchmark Test2(Test1(f1=50))
 
@@ -512,5 +521,8 @@ Test1(IOBuffer(bytes))
 # ╠═68803c8a-c847-4f31-89a4-5eaf0b736800
 # ╠═e30c0ed0-778b-4c0e-b569-60a842ef81bc
 # ╠═b67b05fa-2d5c-4448-b972-5c363a6d5a6b
+# ╠═7a920003-0888-493d-b7fb-73dcfa25b5b7
+# ╠═e1ea9818-e913-47ed-b949-afe0be53b46e
+# ╠═d30170e9-309a-4cb9-87cd-5049b45e3c8a
 # ╠═813080f0-54f5-467d-9915-a64b3e639953
 # ╠═6548f526-4eb7-4b36-94ed-d75197c40cae

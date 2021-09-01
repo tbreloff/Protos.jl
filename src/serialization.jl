@@ -80,7 +80,7 @@ wiretype(s::AbstractString) = wiretype(Symbol(s))
 wiretype(s::Symbol) = haskey(WIRETYPES, s) ? WIRETYPES[s] : WIRETYP_LENDELIM
 
 
-const JTYPES = Dict{Symbol, DataType}(
+const JTYPES = Dict{Symbol, Symbol}(
     :int32    => :Int32,
     :int64    => :Int64,
     :uint32   => :UInt32,
