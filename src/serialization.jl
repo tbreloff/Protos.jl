@@ -1,6 +1,6 @@
 
 #--------------------------------------------------------------------
-# Note: this code was partially copied from JuliaIO/ProtoBuf.jl which has the following license:
+# Note: some of this code was copied/adapted from JuliaIO/ProtoBuf.jl which has the following license:
 # 
 #   The ProtoBuf.jl package is licensed under the MIT "Expat" License:
 #
