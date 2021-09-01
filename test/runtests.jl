@@ -1,4 +1,5 @@
 using Protos
+using Protos.Parsing
 using Test
 
 @testset "Protos.jl" begin
@@ -27,6 +28,7 @@ using Test
     @testset "serialization" begin
         import Protos.Serialization: writefield
         io = IOBuffer()
+        idx = 1
         writefield(io, idx, 150, Val(:uint32))
         @test take!(io) == [0x08, 0x96, 0x01]
     end

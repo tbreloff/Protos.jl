@@ -8,7 +8,7 @@ using InteractiveUtils
 begin
 	using Pkg
 	Pkg.activate()
-	using Revise, Protos
+	using Revise, Protos, BenchmarkTools
 	using Protos.Specs
 	import Protos.Serialization: _write_uleb, _write_key, writeproto, writefield, _read_key, readfield, jtype, wiretype
 end
@@ -305,7 +305,7 @@ $(join([generate_readfield(f, i) for (i, f) in enumerate(m.fields)], "\n"))
 	end
 
 	# construct the immutable object using the fields array
-	new(fields...)
+	$(m.name)(fields...)
 end
 """
 
@@ -377,7 +377,7 @@ function Test1(io::IO)
     end
 
     # construct the immutable object using the fields array
-    new(fields...)
+    Test1(fields...)
 end
 
 
@@ -399,6 +399,52 @@ end
 
 end
 
+# ╔═╡ e1a879dd-ecbc-4855-9566-295a4e08880b
+begin
+
+Base.@kwdef struct Test2
+    x::Union{Missing, Test1} = missing
+end
+
+
+function Test2(io::IO)
+    # the size of this should be the number of fields
+    fields = Vector{Any}(missing, 1)
+
+    while (!eof(io))
+        idx, wiretype = _read_key(io)
+
+        if idx == 1  # x
+            fields[1] = readfield(io, Val(:Test1))
+
+        else
+            skip_field(io, wiretype)
+        end
+    end
+
+    # construct the immutable object using the fields array
+    Test2(fields...)
+end
+
+
+function Protos.Serialization.writeproto(io::IO, m::Test2)
+    n = 0
+    
+    if !ismissing(m.x)
+        n += _write_key(io, 1, 2)
+        # write the nested proto to a temp buffer,
+        # then write then length as a varint and then the raw bytes
+        bytes = writeproto(m.x)
+        n += _write_uleb(io, length(bytes))
+        n += write(io, bytes)
+    end
+
+    
+    n
+end
+	
+end
+
 # ╔═╡ 310a528b-5056-46e3-8525-4649d32e6ef0
 # should be 0x08 0x96 0x01
 Protos.Serialization.writeproto(x)
@@ -407,7 +453,19 @@ Protos.Serialization.writeproto(x)
 Test1(32, "hello")
 
 # ╔═╡ 68803c8a-c847-4f31-89a4-5eaf0b736800
-Test1(f2="world")
+t1 = Test1(f2="world")
+
+# ╔═╡ e30c0ed0-778b-4c0e-b569-60a842ef81bc
+bytes = writeproto(t1)
+
+# ╔═╡ b67b05fa-2d5c-4448-b972-5c363a6d5a6b
+Test1(IOBuffer(bytes))
+
+# ╔═╡ 813080f0-54f5-467d-9915-a64b3e639953
+@benchmark Test2(Test1(f1=50))
+
+# ╔═╡ 6548f526-4eb7-4b36-94ed-d75197c40cae
+@benchmark writeproto(t1)
 
 # ╔═╡ Cell order:
 # ╠═62c13856-92f9-4c51-927c-fdd52314aea4
@@ -449,5 +507,10 @@ Test1(f2="world")
 # ╠═63feb0fa-9c6f-47bb-a955-c1920595a2d7
 # ╠═a541625e-fe4d-4f29-8e4f-152ddbc41e1a
 # ╠═53837856-9021-408a-87eb-f93612f533bf
+# ╠═e1a879dd-ecbc-4855-9566-295a4e08880b
 # ╠═b7bb0428-a5c2-4991-919f-6f3ce8f64644
 # ╠═68803c8a-c847-4f31-89a4-5eaf0b736800
+# ╠═e30c0ed0-778b-4c0e-b569-60a842ef81bc
+# ╠═b67b05fa-2d5c-4448-b972-5c363a6d5a6b
+# ╠═813080f0-54f5-467d-9915-a64b3e639953
+# ╠═6548f526-4eb7-4b36-94ed-d75197c40cae

@@ -21,6 +21,8 @@
 
 module Serialization
 
+export Proto, wiretype, jtype, is_primitive, writeproto, defaultval
+
 const MSB = 0x80
 const MASK7 = 0x7f
 const MASK8 = 0xff
@@ -77,32 +79,32 @@ const WIRETYPES = Dict{Symbol, Int64}(
 wiretype(s::AbstractString) = wiretype(Symbol(s))
 wiretype(s::Symbol) = haskey(WIRETYPES, s) ? WIRETYPES[s] : WIRETYP_LENDELIM
 
+
 const JTYPES = Dict{Symbol, DataType}(
-    :int32    => Int32,
-    :int64    => Int64,
-    :uint32   => UInt32,
-    :uint64   => UInt64,
-    :sint32   => Int32,
-    :sint64   => Int64,
-    :bool     => Bool,
-    :enum     => Int32,
-    :fixed64  => UInt64,
-    :sfixed64 => Int64,
-    :double   => Float64,
-    :string   => AbstractString,
-    :bytes    => Vector{UInt8},
-    # :map      => Dict,
-    :fixed32  => UInt32,
-    :sfixed32 => Int32,
-    :float    => Float32
+    :int32    => :Int32,
+    :int64    => :Int64,
+    :uint32   => :UInt32,
+    :uint64   => :UInt64,
+    :sint32   => :Int32,
+    :sint64   => :Int64,
+    :bool     => :Bool,
+    :enum     => :Int32,
+    :fixed64  => :UInt64,
+    :sfixed64 => :Int64,
+    :double   => :Float64,
+    :string   => :AbstractString,
+    :bytes    => Symbol("Vector{UInt8}"),
+    # :map      => :Dict,
+    :fixed32  => :UInt32,
+    :sfixed32 => :Int32,
+    :float    => :Float32
 )
 
-# TODO: this should return the DataType associated with the type symbol in the proto file
-proto_jtype(::Symbol) = Missing
-
-jtype(::Missing) = Missing
+jtype(::Missing) = :Missing
 jtype(s::AbstractString) = jtype(Symbol(s))
-jtype(s::Symbol) = haskey(JTYPES, s) ? JTYPES[s] : proto_jtype(s)
+jtype(s::Symbol) = haskey(JTYPES, s) ? JTYPES[s] : s
+
+is_primitive(_type) = haskey(JTYPES, Symbol(_type))
 
 defaultval(::Type{T}) where {T<:Number}             = [zero(T)]
 defaultval(::Type{T}) where {T<:AbstractString}     = [convert(T,"")]
