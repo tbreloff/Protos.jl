@@ -8,6 +8,7 @@ Usage: Pass the output from `parse_proto` into the `ProtoFile` constructor.
 """
 module Specs
 
+using ..Parsing
 
 export NormalField, MapField, OneOf, Message, 
     EnumSpec, EnumValue,
@@ -70,7 +71,7 @@ struct NormalField <: MessageField
 end
 
 function NormalField(o::NamedTuple)
-    @show o
+    # @show o
     f = o.field
     NormalField(f.name, o.comments, f.type, f.num)
 end
@@ -225,9 +226,6 @@ mutable struct ProtoFile
     messages::Vector{Message}
     enums::Vector{EnumSpec}
     services::Vector{Service}
-    ProtoFile(comments) = new(comments, 
-        missing, String[], Option[],
-        Message[], EnumSpec[], Service[])
 end
 
 Base.push!(pf::ProtoFile, o::String) = push!(pf.imports, o)
@@ -237,7 +235,7 @@ Base.push!(pf::ProtoFile, o::EnumSpec) = push!(pf.enums, o)
 Base.push!(pf::ProtoFile, o::Service) = push!(pf.services, o)
 
 function ProtoFile(o::NamedTuple)
-    pf = ProtoFile(o.comment)
+    pf = ProtoFile(o.comment, missing, String[], Option[], Message[], EnumSpec[], Service[])
     for stmt in o.statements
         if haskey(stmt, :package)
             pf.package = stmt.package
@@ -248,6 +246,8 @@ function ProtoFile(o::NamedTuple)
     o.unparsed == "" || @warn "Part of the proto file could not be parsed:\n\n$(o.unparsed)"
     pf
 end
+
+ProtoFile(s::String) = ProtoFile(parse_proto(s))
 
 # general conversion
 
