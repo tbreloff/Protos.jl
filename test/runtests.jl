@@ -32,4 +32,18 @@ using Test
         writefield(io, idx, 150, Val(:uint32))
         @test take!(io) == [0x08, 0x96, 0x01]
     end
+    
+    @testset "generation" begin
+        using Protos.Gen
+        pf = ProtoFile("""
+            syntax = "proto3";
+            // Test comment
+            message Test {
+                // i comment
+                uint32 i = 3;
+            }
+            """)
+        generated = generate_message_file(pf.messages[1])
+        @test !isempty(generated)
+    end
 end

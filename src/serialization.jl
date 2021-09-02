@@ -21,7 +21,7 @@
 
 module Serialization
 
-export Proto, wiretype, jtype, is_primitive, writeproto, defaultval
+export Proto, wiretype, writeproto, defaultval
 
 const MSB = 0x80
 const MASK7 = 0x7f
@@ -40,23 +40,7 @@ The abstract type from which all generated protobuf structs extend.
 """
 abstract type Proto end
 
-proto_types(::Type{Int32})                            = [:int32, :sint32, :enum, :sfixed32]
-proto_types(::Type{Int64})                            = [:int64, :sint64, :sfixed64]
-proto_types(::Type{UInt32})                           = [:uint32, :fixed32]
-proto_types(::Type{UInt64})                           = [:uint64, :fixed64]
-proto_types(::Type{Bool})                             = [:bool]
-proto_types(::Type{Float64})                          = [:double]
-proto_types(::Type{Float32})                          = [:float]
-proto_types(::Type{T}) where {T<:AbstractString}      = [:string]
-proto_types(::Type{Vector{UInt8}})                    = [:bytes]
-proto_types(::Type{Dict{K,V}}) where {K,V}            = [:map]
-proto_types(::Type)                                   = [:obj]
-proto_types(::Type{Vector{T}}) where {T}              = proto_types(T)
-
-proto_type(::Type{T}) where {T}                       = proto_types(T)[1]
-
-
-const WIRETYPES = Dict{Symbol, Int64}(
+const _WIRETYPES = Dict{Symbol, Int64}(
     :int32          => WIRETYP_VARINT,
     :int64          => WIRETYP_VARINT,
     :uint32         => WIRETYP_VARINT,
@@ -77,34 +61,9 @@ const WIRETYPES = Dict{Symbol, Int64}(
 )
 
 wiretype(s::AbstractString) = wiretype(Symbol(s))
-wiretype(s::Symbol) = haskey(WIRETYPES, s) ? WIRETYPES[s] : WIRETYP_LENDELIM
+wiretype(s::Symbol) = haskey(_WIRETYPES, s) ? _WIRETYPES[s] : WIRETYP_LENDELIM
 
 
-const JTYPES = Dict{Symbol, Symbol}(
-    :int32    => :Int32,
-    :int64    => :Int64,
-    :uint32   => :UInt32,
-    :uint64   => :UInt64,
-    :sint32   => :Int32,
-    :sint64   => :Int64,
-    :bool     => :Bool,
-    :enum     => :Int32,
-    :fixed64  => :UInt64,
-    :sfixed64 => :Int64,
-    :double   => :Float64,
-    :string   => :AbstractString,
-    :bytes    => Symbol("Vector{UInt8}"),
-    # :map      => :Dict,
-    :fixed32  => :UInt32,
-    :sfixed32 => :Int32,
-    :float    => :Float32
-)
-
-jtype(::Missing) = :Missing
-jtype(s::AbstractString) = jtype(Symbol(s))
-jtype(s::Symbol) = haskey(JTYPES, s) ? JTYPES[s] : s
-
-is_primitive(_type) = haskey(JTYPES, Symbol(_type))
 
 defaultval(::Type{T}) where {T<:Number}             = [zero(T)]
 defaultval(::Type{T}) where {T<:AbstractString}     = [convert(T,"")]
@@ -300,29 +259,29 @@ function read_map(io, dict::Dict{K,V}) where {K,V}
     dict
 end
 
-# const WIRETYPES = Dict{Symbol,Tuple}(
-#     :int32          => (WIRETYP_VARINT,     write_varint,  read_varint,   Int32),
-#     :int64          => (WIRETYP_VARINT,     write_varint,  read_varint,   Int64),
-#     :uint32         => (WIRETYP_VARINT,     write_varint,  read_varint,   UInt32),
-#     :uint64         => (WIRETYP_VARINT,     write_varint,  read_varint,   UInt64),
-#     :sint32         => (WIRETYP_VARINT,     write_svarint, read_svarint,  Int32),
-#     :sint64         => (WIRETYP_VARINT,     write_svarint, read_svarint,  Int64),
-#     :bool           => (WIRETYP_VARINT,     write_bool,    read_bool,     Bool),
-#     :enum           => (WIRETYP_VARINT,     write_varint,  read_varint,   Int32),
+const WIRETYPES = Dict{Symbol,Tuple}(
+    :int32          => (WIRETYP_VARINT,     write_varint,  read_varint,   Int32),
+    :int64          => (WIRETYP_VARINT,     write_varint,  read_varint,   Int64),
+    :uint32         => (WIRETYP_VARINT,     write_varint,  read_varint,   UInt32),
+    :uint64         => (WIRETYP_VARINT,     write_varint,  read_varint,   UInt64),
+    :sint32         => (WIRETYP_VARINT,     write_svarint, read_svarint,  Int32),
+    :sint64         => (WIRETYP_VARINT,     write_svarint, read_svarint,  Int64),
+    :bool           => (WIRETYP_VARINT,     write_bool,    read_bool,     Bool),
+    :enum           => (WIRETYP_VARINT,     write_varint,  read_varint,   Int32),
 
-#     :fixed64        => (WIRETYP_64BIT,      write_fixed,   read_fixed,    UInt64),
-#     :sfixed64       => (WIRETYP_64BIT,      write_fixed,   read_fixed,    Int64),
-#     :double         => (WIRETYP_64BIT,      write_fixed,   read_fixed,    Float64),
+    :fixed64        => (WIRETYP_64BIT,      write_fixed,   read_fixed,    UInt64),
+    :sfixed64       => (WIRETYP_64BIT,      write_fixed,   read_fixed,    Int64),
+    :double         => (WIRETYP_64BIT,      write_fixed,   read_fixed,    Float64),
 
-#     :string         => (WIRETYP_LENDELIM,   write_string,  read_string,   AbstractString),
-#     :bytes          => (WIRETYP_LENDELIM,   write_bytes,   read_bytes,    Vector{UInt8}),
-#     # :obj            => (WIRETYP_LENDELIM,   writeproto,    readproto,     Any),
-#     :map            => (WIRETYP_LENDELIM,   write_map,     read_map,      Dict),
+    :string         => (WIRETYP_LENDELIM,   write_string,  read_string,   AbstractString),
+    :bytes          => (WIRETYP_LENDELIM,   write_bytes,   read_bytes,    Vector{UInt8}),
+    # :obj            => (WIRETYP_LENDELIM,   writeproto,    readproto,     Any),
+    :map            => (WIRETYP_LENDELIM,   write_map,     read_map,      Dict),
 
-#     :fixed32        => (WIRETYP_32BIT,      write_fixed,   read_fixed,    UInt32),
-#     :sfixed32       => (WIRETYP_32BIT,      write_fixed,   read_fixed,    Int32),
-#     :float          => (WIRETYP_32BIT,      write_fixed,   read_fixed,    Float32)
-# )
+    :fixed32        => (WIRETYP_32BIT,      write_fixed,   read_fixed,    UInt32),
+    :sfixed32       => (WIRETYP_32BIT,      write_fixed,   read_fixed,    Int32),
+    :float          => (WIRETYP_32BIT,      write_fixed,   read_fixed,    Float32)
+)
 
 
 
